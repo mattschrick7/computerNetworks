@@ -76,6 +76,7 @@ int server(char *server_port) {
 	    while ((bytes_received = recv(new_fd, msg, sizeof(msg) -1, 0)) > 0) {
 		    msg[bytes_received] = '\0'; //null terminate
 		    printf(msg);
+	            fflush(stdout);
 
 	    }
 	    if (bytes_received == -1) {
