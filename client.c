@@ -51,26 +51,12 @@ int client(char *server_ip, char *server_port) {
 		perror("couldn't connect to socket");
 		return -1;
 	}
+	size_t bytesRead;
 	char buf[SEND_BUFFER_SIZE];
-	while(fgets(buf, sizeof(buf), stdin) != NULL) {
-		ssize_t sent = 0;
-		ssize_t totalSent = 0;
-		ssize_t size = strlen(buf);
-		
-		while (sent < size) {
+	while((bytesRead = fread(buf, 1, SEND_BUFFER_SIZE, stdin)) > 0) {
 
-			sent = send(socketfd, buf + sent, strlen(buf) - sent, 0);
-			if (sent == -1) {
-				if (errno == EINTR) {
-					continue;
-				} else {
-					perror("send");
-					return -1;
-				}
-			}
-			totalSent = totalSent + sent;
-		}
-	}
+		send(socketfd, buf, bytesRead, 0);
+	} 
 	freeaddrinfo(servinfo);
 	close(socketfd);	
 	return 0;

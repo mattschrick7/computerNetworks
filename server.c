@@ -73,9 +73,8 @@ int server(char *server_port) {
 	    ssize_t bytes_received = 0;
 	    ssize_t expected_size = RECV_BUFFER_SIZE;
 
-	    while ((bytes_received = recv(new_fd, msg, sizeof(msg) -1, 0)) > 0) {
-		    msg[bytes_received] = '\0'; //null terminate
-		    printf(msg);
+	    while ((bytes_received = recv(new_fd, msg, RECV_BUFFER_SIZE, 0)) > 0) {
+		    fwrite(msg, bytes_received, 1, stdout);
 	            fflush(stdout);
 
 	    }
