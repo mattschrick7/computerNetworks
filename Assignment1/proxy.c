@@ -13,24 +13,26 @@
 
 #define QUEUE_LENGTH 10
 #define RECV_BUFFER_SIZE 1024
+#define DEFAULT_HTTP_PORT "80"
 
-int connect_to_server(const char *host, int port) {
-	int status;
+int connect_to_server(const char *host, const char *port) {
 	struct addrinfo hints;
 	struct addrinfo *servinfo, *p;
 	int target_fd;
 	int rv;
 
+	
+
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 
-	if ((rv = getaddrinfo(host, port, &hints, &targetinfo)) != 0) {
+	if ((rv = getaddrinfo(host, port, &hints, &servinfo)) != 0) {
 		perror("getaadrinfo");
 		return -1;
 	}
 
-	for (p = targetinfo; p != NULL; p = p->ai_next) {
+	for (p = servinfo; p != NULL; p = p->ai_next) {
         if ((target_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
             perror("client: socket");
             continue;
@@ -44,7 +46,7 @@ int connect_to_server(const char *host, int port) {
         break; 
     	}
 
-    	freeaddrinfo(targetinfo);
+    	freeaddrinfo(servinfo);
 
     	if (p == NULL) {
         	fprintf(stderr, "client: failed to connect to target\n");
@@ -57,14 +59,14 @@ int connect_to_server(const char *host, int port) {
 
 int parse_request(char *buffer, ssize_t len, char **host, char **port, char **request, size_t *request_len) {
 	struct ParsedRequest *req = ParsedRequest_create();
-	if (ParsedRequest(req, buffer, len) < 0) {
+	if (ParsedRequest_parse(req, buffer, len) < 0) {
 		fprintf(stderr, "parse failed\n");
 		ParsedRequest_destroy(req);
 		return -1;
 	}
 
 	if (strcmp(req->method, "GET") != 0) {
-		fprintf(std, "Only GET requests are supportedf \n");
+		fprintf(stderr, "Only GET requests are supportedf \n");
 		ParsedRequest_destroy(req);
 		return -1;
 	}
@@ -138,7 +140,7 @@ int receive_request(int client_fd, char **buffer, size_t *total_len) {
  * Return 0 on success, non-zero on failure
 */
 int proxy(char *proxy_port) {
-  int sockfd, new_fd;
+  int sockfd, new_fd, target_fd;
   struct addrinfo hints, *servinfo, *p;
   struct sockaddr_storage their_addr;
   socklen_t sin_size;
@@ -151,7 +153,7 @@ int proxy(char *proxy_port) {
   int rv;
   int yes = 1;
   
-  if ((rv = getaddrinfo(NULL, server_port, &hints, &servinfo)) != 0) {
+  if ((rv = getaddrinfo(NULL, proxy_port, &hints, &servinfo)) != 0) {
 	  perror("addrinfo failed");
 	  return 1;
   }
@@ -166,7 +168,7 @@ int proxy(char *proxy_port) {
 		  perror("setsockopts");
 		  exit(1);
 	  }
-	  if (bind(sockfd, p->ai_addr, p->addrlen) == -1) {
+	  if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
 		 close(sockfd);
 		perror("server:bind");
 		continue;
@@ -249,8 +251,8 @@ int proxy(char *proxy_port) {
 
 		    char response[RECV_BUFFER_SIZE];
 		    ssize_t bytes_received = 0;
-		    while ((bytes_received = recv(target_fd, msg, RECV_BUFFER_SIZE,0)) >0) {
-			    if (send(new_fd, msg, bytes_received, 0) == -1) {
+		    while ((bytes_received = recv(target_fd, response, RECV_BUFFER_SIZE,0)) >0) {
+			    if (send(new_fd, response, bytes_received, 0) == -1) {
 				    perror("send to client");
 				    break;
 			    }
