@@ -62,22 +62,24 @@ int parse_request(char *buffer, ssize_t len, char **host, char **port, char **re
 	if (ParsedRequest_parse(req, buffer, len) < 0) {
 		printf("HTTP/1.0 400 Bad Request\r\n\r\n");
 		ParsedRequest_destroy(req);
-		return -1;
+		return 1;
 	}
 
 	if (strcmp(req->method, "POST") == 0) {
 		printf("HTTP/1.0 501 Not Implemented\r\n\r\n");
+		ParsedRequest_destroy(req);
+		return 2;
 	}
 
 	if (req->host == NULL || strlen(req->host) == 0) {
     		printf("HTTP/1.0 400 Bad Request\r\n\r\n");
- 	   	return -1;
+ 	   	return 1;
 	}
 
 	if (strcmp(req->method, "GET") != 0) {
 		fprintf(stderr, "Only GET requests are supportedf \n");
 		ParsedRequest_destroy(req);
-		return -1;
+		return 1;
 	}
 
 	*host = strdup(req->host);
@@ -194,7 +196,7 @@ int proxy(char *proxy_port) {
   while(1) {
 
 	    while (waitpid(-1, NULL, WNOHANG) > 0) {
-            	// Continue reaping until no more children are ready
+            	// reap children
             }
             sin_size = sizeof their_addr;
             new_fd = accept(sockfd, (struct sockaddr *)&their_addr,&sin_size);
@@ -237,6 +239,7 @@ int proxy(char *proxy_port) {
 		    close(sockfd);
 	    	    char *buffer = NULL;
 		    size_t total_len = 0;
+		    
 		    if (receive_request(new_fd, &buffer, &total_len) < 0) {
 			    close(new_fd);
 			    exit(1);
@@ -244,12 +247,29 @@ int proxy(char *proxy_port) {
 
 		    char *host = NULL, *port = NULL, *request = NULL;
 		    size_t request_len = 0;
-		    if (parse_request(buffer, total_len, &host, &port, &request, &request_len)<0) {
-			    printf(stderr, "Failed to parse request\n");
+		    int parseStatus = parse_request(buffer, total_len, &host, &port, &request, &request_len);
+		    const char *httpError = "HTTP/1.0 400 Bad Request\r\n\r\n";
+		    const char *postError = "HTTP/1.0 501 Not Implemented\r\n\r\n";
+		    if (parseStatus == 1) {
+			    send(new_fd, httpError, strlen(httpError), 0);
                 	    free(buffer);
                             close(new_fd);
                 	    exit(1);
             	    
+		    } else if (parseStatus == 2) {
+			    send(new_fd, postError, strlen(postError), 0);
+                            free(buffer);
+                            close(new_fd);
+                            exit(1);
+
+		    } else if (parseStatus < 2) {
+			    printf(stderr, "Failed to parse request\n");
+
+                	    free(buffer);
+
+                            close(new_fd);
+
+                	    exit(1);
 		    }
 
 		    free(buffer);
