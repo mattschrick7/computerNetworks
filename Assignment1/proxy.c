@@ -60,9 +60,18 @@ int connect_to_server(const char *host, const char *port) {
 int parse_request(char *buffer, ssize_t len, char **host, char **port, char **request, size_t *request_len) {
 	struct ParsedRequest *req = ParsedRequest_create();
 	if (ParsedRequest_parse(req, buffer, len) < 0) {
-		fprintf(stderr, "parse failed\n");
+		printf("HTTP/1.0 400 Bad Request\r\n\r\n");
 		ParsedRequest_destroy(req);
 		return -1;
+	}
+
+	if (strcmp(req->method, "POST") == 0) {
+		printf("HTTP/1.0 501 Not Implemented\r\n\r\n");
+	}
+
+	if (req->host == NULL || strlen(req->host) == 0) {
+    		printf("HTTP/1.0 400 Bad Request\r\n\r\n");
+ 	   	return -1;
 	}
 
 	if (strcmp(req->method, "GET") != 0) {
